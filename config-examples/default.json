@@ -1,0 +1,23 @@
+{
+    "ssh": {
+        "host": "hostname",
+        "port": 22,
+        "username": "bob",
+        "password": "password"
+    },
+    "mongodb": {
+        "host": "localhost",
+        "port": 27017,
+        "db": "SshDownload"
+    },
+    "downloader": {
+        "remoteBasePath": "/home/bob/downloads",
+        "localBasePath": "c:/temp",
+        "downloadFilesEnabled": true
+    },
+    "logging": {
+        "filename": "logs/sshDownloader.log",
+        "maxSize": 20000000,
+        "maxFiles": 5
+    }
+}
