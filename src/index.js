@@ -14,7 +14,7 @@ const WinstonMongo = require('winston-mongodb').MongoDB;
 const utils = require('./utils');
 const SshClient = require('./SshClient');
 const FileInfo = require('./FileInfo');
-const config2 = require('config');
+const config = require('config');
 
 
 bbp.promisifyAll(mongoDb);
@@ -25,10 +25,10 @@ let MongoClient = mongoDb.MongoClient;
 let Client = ssh2.Client;
 
 
-let mongoConfig = config2.get('mongodb');
-let sshConfig = config2.get('ssh');
-let downloaderConfig = config2.get('downloader');
-let loggingConfig = config2.get('logging');
+let mongoConfig = config.get('mongodb');
+let sshConfig = config.get('ssh');
+let downloaderConfig = config.get('downloader');
+let loggingConfig = config.get('logging');
 
 let ssh = new SshClient();
 let db = new DbClient();
