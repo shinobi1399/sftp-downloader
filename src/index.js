@@ -54,30 +54,45 @@ function configureWinston() {
 
 function main() {
     return bbp.coroutine(function* () {
-        yield db.connect(buildMongoUrl(mongoConfig));
+        let mongoUrl = buildMongoUrl(mongoConfig);
+
+        winston.info(`connecting to mongodb ${mongoUrl}`)
+        yield db.connect(mongoUrl);
+
+        winston.info(`connecting to ssh ${sshConfig.host}`)
         yield ssh.connect(sshConfig);
+
         let files = [];
         let filesRepository = getFileRepository(db);
 
         let sftp = yield ssh.sftp();
-        winston.info('reading remote files');
-        yield readRemoteFiles(
-            sftp,
-            files,
-            downloaderConfig.remoteBasePath,
-            downloaderConfig.remoteBasePath);
+        const locations = downloaderConfig.locations;
 
-        winston.info('syncing database');
-        yield syncDb(files, filesRepository);
-        if (downloaderConfig.downloadFilesEnabled) {
-            winston.info('downloading files');
-            yield downloadFiles(
-                files,
+        for (let i = 0; i < locations.length; i++) {
+            let currentLocation = locations[i];
+            winston.info(`reading remote files`, currentLocation);
+            yield readRemoteFiles(
                 sftp,
-                filesRepository,
-                downloaderConfig.remoteBasePath,
-                downloaderConfig.localBasePath);
+                files,
+                currentLocation.remoteDownloadDirectory,
+                downloaderConfig.basePath,
+                currentLocation.id);
+
+            winston.info('syncing database');
+            yield syncDb(files, filesRepository);
+
+            if (downloaderConfig.downloadFilesEnabled) {
+                winston.info('downloading files');
+
+                yield downloadFiles(
+                    files,
+                    sftp,
+                    filesRepository,
+                    currentLocation.remoteDownloadDirectory,
+                    currentLocation.localDownloadDirectory);
+            }
         }
+
 
 
         winston.info('finished');
@@ -100,31 +115,36 @@ module.exports.main = main;
  * The sftp client used to to navigate a remote filesystem
  * @param {File[]} files
  * resulting list of files from traversing the folder and subfolders.
- * @param {string} path
- * The remote base path to start searching.
- * @param {string} basePath The base path used to calculate the relative path of files found.
- * 
+ * @param {string} remotePathToRead
+ * The remote base path to look for files to download.
+ * @param {string} remoteBasePath
+ * The remote base path used to calculate the relative path key for the file.
+ * e.g the home directory is often used for this so if the location of home directory changes, the
+ * file id ie relative path is not affected.
+ * @param {string} locationId
+ * the location id this file is attached to. There can be multiple download locations specified..
  * @returns a promise.
  */
-function readRemoteFiles(sftp, files, path, basePath) {
+function readRemoteFiles(sftp, files, remotePathToRead, remoteBasePath, locationId) {
     return bbp.coroutine(function* () {
-        winston.log('info', `processing dir ${path}`);
-        let list = yield sftp.readdirAsync(path);
+        winston.log('info', `processing dir ${remotePathToRead}`);
+        let list = yield sftp.readdirAsync(remotePathToRead);
 
         for (let i = 0; i < list.length; i++) {
-            let x = list[i];
-            let file = new FileInfo(x, path, basePath);
+            let fileData = list[i];
+            let file = FileInfo.CreateFromData(fileData, remotePathToRead, remoteBasePath, locationId);
+
             if (file.isDir) {
-                yield readRemoteFiles(sftp, files, file.fullPath, basePath);
+                yield readRemoteFiles(sftp, files, file.fullPath, remoteBasePath, locationId);
             }
             else {
-                winston.log('info', `found file ${file.fullPath}`);
+                winston.debug('info', `found file ${file.fullPath}`);
                 files.push(file);
             }
         }
     })();
 }
-module.exports.addFiles = readRemoteFiles;
+module.exports.readRemoteFiles = readRemoteFiles;
 
 
 /**
@@ -134,7 +154,7 @@ module.exports.addFiles = readRemoteFiles;
  * @param {Repository} fileRepository 
  * @returns Promise.
  */
-function syncDb(files, fileRepository) {
+function syncDb(files, fileRepository, locationId) {
     return bbp.coroutine(function* () {
 
         let changeId = utils.generateGuid();
@@ -147,7 +167,7 @@ function syncDb(files, fileRepository) {
                 existingDbFile.changeId = changeId;
                 file.downloaded = existingDbFile.downloaded;
                 file._id = existingDbFile._id;
-                winston.info(`updating existing file ${file.fullPath}`);
+                winston.debug(`updating existing file ${file.fullPath}`);
             }
             else {
                 winston.info(`adding new file ${file.fullPath}`);
@@ -155,10 +175,12 @@ function syncDb(files, fileRepository) {
 
             let newDbFile = file.export();
             newDbFile.changeId = changeId;
-            let updated = yield fileRepository.saveOrUpdate(newDbFile);
+            yield fileRepository.saveOrUpdate(newDbFile);
         }
 
-        var orphanDbFiles = yield fileRepository.find({ changeId: { $ne: changeId } });
+        var orphanDbFiles = yield fileRepository.find
+            ({ changeId: { $ne: changeId }, locationId: locationId });
+
         for (let i = 0; i < orphanDbFiles.length; i++) {
             let oFile = orphanDbFiles[i];
             let tempFile = new FileInfo().import(oFile);
@@ -195,6 +217,7 @@ function downloadFiles(files, sftp, fileRepository, remoteBasePath, localBasePat
 
             yield downloadFile(downloadPath, file, sftp);
             file.downloaded = true;
+            fileRepository.saveOrUpdate(file.export());
         }
     })();
 }

@@ -11,15 +11,19 @@ class FileInfo {
      * 
      * @memberOf FileInfo
      */
-    constructor(file, directory, baseDir) {
-        if (file && directory && baseDir) {
-            this._directory = directory;
-            this._baseDir = baseDir;
-            this._filename = file.filename;
-            this._longname = file.longname;
-            this._downloaded = false;
-        }
+    constructor() {
+
         this._id = mongoDb.ObjectId();
+    }
+    static CreateFromData(file, directory, baseDir, locationId) {
+        let result = new FileInfo();
+        result._directory = directory;
+        result._baseDir = baseDir;
+        result._filename = file.filename;
+        result._longname = file.longname;
+        result._downloaded = false;
+        result._locationId = locationId;
+        return result;
     }
 
     /**
@@ -37,7 +41,8 @@ class FileInfo {
             longname: this._longname,
             downloaded: this._downloaded,
             relativePath: this.relativePath,
-            _id: this._id
+            _id: this._id,
+            locationId: this._locationId
         };
     }
 
@@ -56,8 +61,13 @@ class FileInfo {
         this._longname = obj.longname;
         this._downloaded = obj.downloaded;
         this._id = obj._id;
+        this._locationId = obj.locationId;
         return this;
     }
+    get locationId() {
+        return this._locationId;
+    }
+
     /**
      * gets whether this file has been downloaded.
      * 
