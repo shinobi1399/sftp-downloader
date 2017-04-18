@@ -32,6 +32,14 @@ let loggingConfig = config.get('logging');
 
 let ssh = new SshClient();
 let db = new DbClient();
+let mongoTransport = null;
+
+
+//Execute 
+configureWinston(mongoConfig);
+main();
+
+
 
 function buildMongoUrl(config) {
     return `mongodb://${config.host}:${config.port}/${config.db}`;
@@ -40,15 +48,16 @@ function buildMongoUrl(config) {
 function configureWinston() {
     winston.add(winston.transports.File, {
         filename: loggingConfig.filename,
-        maxsize: 1024 * 1024 * 20,
+        maxsize: loggingConfig.maxSize,
         maxFiles: 5,
         handleExceptions: true,
         humanReadableUnhandledException: true
     });
-    winston.add(WinstonMongo, {
+
+    mongoTransport = winston.add(WinstonMongo, {
         db: buildMongoUrl(mongoConfig),
         capped: true,
-        cappedSize: 1024 * 1024 * 50
+        cappedSize: loggingConfig.maxSize
     });
 }
 
@@ -105,6 +114,10 @@ function main() {
             return bbp.coroutine(function* () {
                 yield db.disconnect();
                 ssh.disconnect();
+                if (mongoTransport) {
+                    mongoTransport.close();
+                    mongoTransport = null;
+                }
             })();
 
         });
@@ -260,6 +273,3 @@ function getFileRepository(db) {
 }
 
 
-
-configureWinston(mongoConfig);
-main();
