@@ -91,6 +91,9 @@ function main() {
                     currentLocation.remoteDownloadDirectory,
                     currentLocation.localDownloadDirectory);
             }
+            else {
+                winston.info('downloading files is disabled');
+            }
         }
 
 
