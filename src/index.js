@@ -84,7 +84,7 @@ function main() {
                 sftp,
                 files,
                 currentLocation.remoteDownloadDirectory,
-                downloaderConfig.basePath,
+                downloaderConfig.remoteBasePath,
                 currentLocation.id);
 
             winston.info('syncing database');
