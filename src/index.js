@@ -15,6 +15,7 @@ const utils = require('./utils');
 const SshClient = require('./SshClient');
 const FileInfo = require('./FileInfo');
 const config = require('config');
+const formatNumber = require('format-number');
 
 
 bbp.promisifyAll(mongoDb);
@@ -34,7 +35,7 @@ let ssh = new SshClient();
 let db = new DbClient();
 let mongoTransport = null;
 
-
+const bytesFormat = formatNumber();
 //Execute 
 configureWinston(mongoConfig);
 main();
@@ -248,7 +249,7 @@ module.exports.downloadFiles = downloadFiles;
  * @returns promise.
  */
 function downloadFile(downloadPath, file, sftp) {
-    let stepCallback = (transferred, chunk, total) => { winston.info(`${file.name} transferred ${transferred} of ${total}`); };
+    let stepCallback = (transferred, chunk, total) => { console.log(`${file.name} transferred ${bytesFormat(transferred)} of ${bytesFormat(total)}`); };
     return bbp.coroutine(function* () {
         downloadPath = utils.removeNonWindowsChars(downloadPath);
         let tempDownloadPath = downloadPath + '.tmp';
