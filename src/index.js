@@ -232,13 +232,30 @@ function downloadFiles(files, sftp, fileRepository, remoteBasePath, localBasePat
 
             let downloadPath = utils.changeBasePath(remoteBasePath, file.fullPath, localBasePath);
 
-            yield downloadFile(downloadPath, file, sftp);
+            yield performAction( () => downloadFile(downloadPath, file, sftp), 20);
             file.downloaded = true;
             fileRepository.saveOrUpdate(file.export());
         }
     })();
 }
 module.exports.downloadFiles = downloadFiles;
+
+/**
+ * Retry utility function to auto retry on failure upto a max number of retries.
+  */
+function performAction(action, retry) {
+    return bbp.coroutine( function* () {
+       for(let i=0;;i++) {
+           try {
+               yield action();
+               return;
+           } catch(err) {
+               winston.error('error performing action', err);
+               if(i >= retry) throw err;
+           }
+       }
+    });
+}
 
 /**
  * Downloads a file from the remote server.
