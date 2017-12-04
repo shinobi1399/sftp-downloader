@@ -232,7 +232,10 @@ function downloadFiles(files, sftp, fileRepository, remoteBasePath, localBasePat
 
             let downloadPath = utils.changeBasePath(remoteBasePath, file.fullPath, localBasePath);
 
-            yield performAction( () => downloadFile(downloadPath, file, sftp), 20);
+            yield performAction(function () {
+                return downloadFile(downloadPath, file, sftp);
+            }, 20);
+
             file.downloaded = true;
             fileRepository.saveOrUpdate(file.export());
         }
@@ -254,7 +257,7 @@ function performAction(action, retry) {
                if(i >= retry) throw err;
            }
        }
-    });
+    })();
 }
 
 /**
@@ -273,7 +276,6 @@ function downloadFile(downloadPath, file, sftp) {
         winston.info(`downloading ${file.name} to ${downloadPath}`);
         let downloadDir = path.dirname(downloadPath);
         shell.mkdir('-p', downloadDir);
-
         yield sftp.fastGetAsync(
             file.fullPath,
             tempDownloadPath,
