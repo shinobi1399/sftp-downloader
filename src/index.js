@@ -38,7 +38,7 @@ let mongoTransport = null;
 const bytesFormat = formatNumber();
 //Execute 
 configureWinston(mongoConfig);
-main();
+main().catch(err => winston.error('unhandled exception', err));
 
 
 
